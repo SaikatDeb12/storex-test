@@ -14,8 +14,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// package-level variables are initialized before the execution of main
 var (
-	SecretKey = GetEnvVariables("SECRET_KEY")
+	// SecretKey = GetEnvVariables("SECRET_KEY")
+	SecretKey string
 	validate  = validator.New()
 )
 

@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/SaikatDeb12/storeX/internal/database/dbhelper"
 	"github.com/SaikatDeb12/storeX/internal/models"
 	"github.com/SaikatDeb12/storeX/internal/utils"
 	"github.com/golang-jwt/jwt"
 )
 
-type ContextKeys struct{}
+type ContextKeys string
 
-var RequestContextKey = ContextKeys{}
+var RequestContextKey ContextKeys = "request-context"
 
 func UserContext(r *http.Request) (models.RequestContext, bool) {
 	user, ok := r.Context().Value(RequestContextKey).(models.RequestContext)
@@ -24,17 +25,17 @@ func Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			utils.RespondError(w, http.StatusNotFound, nil, "missing authorization header")
+			utils.RespondError(w, http.StatusUnauthorized, nil, "missing authorization header")
 			return
 		}
 
-		const brearerPrefix = "Bearer "
-		if !strings.HasPrefix(authHeader, brearerPrefix) {
+		const bearerPrefix = "Bearer "
+		if !strings.HasPrefix(authHeader, bearerPrefix) {
 			utils.RespondError(w, http.StatusUnauthorized, nil, "invalid authorization header")
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, brearerPrefix)
+		tokenString := strings.TrimPrefix(authHeader, bearerPrefix)
 		token, parseErr := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("invalid signing method")
@@ -42,30 +43,45 @@ func Authenticate(next http.Handler) http.Handler {
 			return []byte(utils.SecretKey), nil
 		})
 
-		if !token.Valid || parseErr != nil {
+		if parseErr != nil || token == nil || !token.Valid {
 			utils.RespondError(w, http.StatusUnauthorized, parseErr, "invalid token")
 			return
 		}
 
-		claimValues, err := token.Claims.(jwt.MapClaims)
-		if !err {
+		claimValues, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
 			utils.RespondError(w, http.StatusUnauthorized, nil, "invalid token claims")
 			return
 		}
 
-		userID, err := claimValues["user_id"].(string)
-		if !err {
+		userID, ok := claimValues["user_id"].(string)
+		if !ok {
 			utils.RespondError(w, http.StatusUnauthorized, nil, "invalid user id")
 			return
 		}
 
-		sessionID, err := claimValues["session_id"].(string)
-		if !err {
+		sessionID, ok := claimValues["session_id"].(string)
+		if !ok {
 			utils.RespondError(w, http.StatusUnauthorized, nil, "invalid session id")
 			return
 		}
 
-		role := claimValues["role"].(string)
+		isValidSession, err := dbhelper.ValidateUserSession(sessionID)
+		if err != nil {
+			utils.RespondError(w, http.StatusInternalServerError, err, "session validation failed")
+			return
+		}
+
+		if !isValidSession {
+			utils.RespondError(w, http.StatusUnauthorized, nil, "session expired or logged out")
+			return
+		}
+
+		role, ok := claimValues["role"].(string)
+		if !ok {
+			utils.RespondError(w, http.StatusUnauthorized, err, "invalid role claim")
+			return
+		}
 		requestContext := models.RequestContext{
 			UserID:    userID,
 			SessionID: sessionID,
@@ -92,7 +108,11 @@ func Authenticate(next http.Handler) http.Handler {
 
 func CheckUserRole(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userCtx, _ := UserContext(r)
+		userCtx, ok := UserContext(r)
+		if !ok {
+			utils.RespondError(w, http.StatusUnauthorized, nil, "missing user context")
+			return
+		}
 		role := userCtx.Role
 
 		if role == "admin" || role == "asset_manager" {

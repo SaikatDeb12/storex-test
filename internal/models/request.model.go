@@ -40,10 +40,10 @@ type CreateAssetRequest struct {
 	WarrantyStart string `json:"warrantyStart" db:"warranty_start" validate:"required"`
 	WarrantyEnd   string `json:"warrantyEnd" db:"warranty_end" validate:"required"`
 
-	Laptop   *LaptopRequest   `json:"laptop"`
-	Keyboard *KeyboardRequest `json:"keyboard"`
-	Mouse    *MouseRequest    `json:"mouse"`
-	Mobile   *MobileRequest   `json:"mobile"`
+	Laptop   *LaptopRequest   `validate:"required_if=assetType laptop"`
+	Keyboard *KeyboardRequest `validate:"required_if=assetType keyboard"`
+	Mouse    *MouseRequest    `validate:"required_if=assetType mouse"`
+	Mobile   *MobileRequest   `validate:"required_if=assetType mobile"`
 }
 
 type AssetInfoRequest struct {
@@ -64,10 +64,10 @@ type UpdateAssetRequest struct {
 	WarrantyStart string `json:"warrantyStart" db:"warranty_start" validate:"required"`
 	WarrantyEnd   string `json:"warrantyEnd" db:"warranty_end" validate:"required"`
 
-	Laptop   *LaptopRequest   `json:"laptop"`
-	Keyboard *KeyboardRequest `json:"keyboard"`
-	Mouse    *MouseRequest    `json:"mouse"`
-	Mobile   *MobileRequest   `json:"mobile"`
+	Laptop   *LaptopRequest   `validate:"required_if=assetType laptop"`
+	Keyboard *KeyboardRequest `validate:"required_if=assetType keyboard"`
+	Mouse    *MouseRequest    `validate:"required_if=assetType mouse"`
+	Mobile   *MobileRequest   `validate:"required_if=assetType mobile"`
 }
 
 type LaptopRequest struct {

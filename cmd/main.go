@@ -16,6 +16,9 @@ func main() {
 		log.Fatal("failed to load .env")
 	}
 
+	// to initialize the secret key after loading the env files
+	utils.SecretKey = utils.GetEnvVariables("SECRET_KEY")
+
 	err := database.Connect()
 	if err != nil {
 		log.Fatal("Error connecting to database\n", err)

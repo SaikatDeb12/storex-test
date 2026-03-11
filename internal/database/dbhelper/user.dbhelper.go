@@ -5,6 +5,7 @@ import (
 
 	"github.com/SaikatDeb12/storeX/internal/database"
 	"github.com/SaikatDeb12/storeX/internal/models"
+	"github.com/jmoiron/sqlx"
 )
 
 func CheckUserExistsByEmail(email string) (bool, error) {
@@ -22,21 +23,35 @@ func CheckUserExistsByEmail(email string) (bool, error) {
 	return count > 0, err
 }
 
-func CreateUser(name, email, phoneNumber, role, employment, hashedPassword string) (string, error) {
+func CreateUser(tx *sqlx.Tx, name, email, phoneNumber, role, employment, hashedPassword string) (string, error) {
 	SQL := `
 		INSERT INTO users(name, email, phone_number, role, employment, password)
 		VALUES($1, TRIM(LOWER($2)), $3, $4, $5, $6)
 		RETURNING id
 	`
 	var userID string
-	err := database.DB.Get(&userID, SQL, name, email, phoneNumber, role, employment, hashedPassword)
+	err := tx.Get(&userID, SQL, name, email, phoneNumber, role, employment, hashedPassword)
 	if err != nil {
 		return "", err
 	}
 	return string(userID), nil
 }
 
-func CreateSession(userID string) (string, error) {
+func CreateSessionOnRegister(tx *sqlx.Tx, userID string) (string, error) {
+	SQL := `
+		INSERT INTO user_sessions(user_id)
+		VALUES($1)
+		RETURNING id
+	`
+	var sessionID string
+	err := tx.Get(&sessionID, SQL, userID)
+	if err != nil {
+		return "", err
+	}
+	return string(sessionID), nil
+}
+
+func CreateSessionOnLogin(userID string) (string, error) {
 	SQL := `
 		INSERT INTO user_sessions(user_id)
 		VALUES($1)
@@ -150,23 +165,41 @@ func FetchUserByID(userID string) (models.UserInfoRequest, error) {
 	return user, err
 }
 
-func ValidateUserSession(sessionID string) error {
+func ValidateUserSession(sessionID string) (bool, error) {
+	SQL := `
+		SELECT COUNT(*) 
+		FROM user_sessions
+		WHERE id=$1 AND archived_at IS NULL
+	`
+	var count int
+	err := database.DB.Get(&count, SQL, sessionID)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func UpdateUserSession(sessionID string) error {
 	SQL := `
 		UPDATE user_sessions
 		SET archived_at=NOW()
 		WHERE id=$1 AND archived_at IS NULL
 	`
-	res, err := database.DB.Exec(SQL, sessionID)
-	rows, _ := res.RowsAffected()
+	result, err := database.DB.Exec(SQL, sessionID)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
 	if rows == 0 {
 		return errors.New("session not found")
 	}
-	return err
+	return nil
 }
 
 // func DeleteUserByID(userID string) error {
-	// if a user is deleted then, all the assets assigned to them will be "available"
-	// SQL := `
-	// 	UPDATE user
-	// `
-}
+// if a user is deleted then, all the assets assigned to them will be "available"
+// SQL := `
+// 	UPDATE user
+// `
+// }

@@ -29,7 +29,7 @@ func CreateAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := database.Tx(func(tx *sqlx.Tx) error {
-		assetID, err := dbhelper.CreateAsset(req)
+		assetID, err := dbhelper.CreateAsset(tx, req)
 		if err != nil {
 			return err
 		}
@@ -37,13 +37,13 @@ func CreateAsset(w http.ResponseWriter, r *http.Request) {
 		assetType := req.Type
 		switch assetType {
 		case "laptop":
-			err = dbhelper.InsertLaptopDetails(assetID, *req.Laptop)
+			err = dbhelper.InsertLaptopDetails(tx, assetID, *req.Laptop)
 		case "keyboard":
-			err = dbhelper.InsertKeyboardDetails(assetID, *req.Keyboard)
+			err = dbhelper.InsertKeyboardDetails(tx, assetID, *req.Keyboard)
 		case "mouse":
-			err = dbhelper.InsertMouseDetails(assetID, *req.Mouse)
+			err = dbhelper.InsertMouseDetails(tx, assetID, *req.Mouse)
 		case "mobile":
-			err = dbhelper.InsertMobileDetails(assetID, *req.Mobile)
+			err = dbhelper.InsertMobileDetails(tx, assetID, *req.Mobile)
 		default:
 			err = errors.New("invalid asset type")
 		}

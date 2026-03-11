@@ -9,7 +9,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func InsertKeyboardDetails(assetID string, req models.KeyboardRequest) error {
+func InsertKeyboardDetails(tx *sqlx.Tx, assetID string, req models.KeyboardRequest) error {
 	SQL := `
 		INSERT INTO keyboards(asset_id, connectivity, layout)
 		VALUES($1, $2, $3)
@@ -21,11 +21,11 @@ func InsertKeyboardDetails(assetID string, req models.KeyboardRequest) error {
 		req.Layout,
 	}
 
-	_, err := database.DB.Exec(SQL, args...)
+	_, err := tx.Exec(SQL, args...)
 	return err
 }
 
-func InsertLaptopDetails(assetID string, req models.LaptopRequest) error {
+func InsertLaptopDetails(tx *sqlx.Tx, assetID string, req models.LaptopRequest) error {
 	SQL := `
 		INSERT INTO laptops(asset_id, processor, ram, storage, operating_system, charger, device_password)
 		VALUES($1, $2, $3, $4, $5, $6, $7)
@@ -41,11 +41,11 @@ func InsertLaptopDetails(assetID string, req models.LaptopRequest) error {
 		req.DevicePassword,
 	}
 
-	_, err := database.DB.Exec(SQL, args...)
+	_, err := tx.Exec(SQL, args...)
 	return err
 }
 
-func InsertMouseDetails(assetID string, req models.MouseRequest) error {
+func InsertMouseDetails(tx *sqlx.Tx, assetID string, req models.MouseRequest) error {
 	SQL := `
 		INSERT INTO mice(asset_id, dpi, connectivity)
 		VALUES($1, $2, $3)
@@ -57,11 +57,11 @@ func InsertMouseDetails(assetID string, req models.MouseRequest) error {
 		req.Connectivity,
 	}
 
-	_, err := database.DB.Exec(SQL, args...)
+	_, err := tx.Exec(SQL, args...)
 	return err
 }
 
-func InsertMobileDetails(assetID string, req models.MobileRequest) error {
+func InsertMobileDetails(tx *sqlx.Tx, assetID string, req models.MobileRequest) error {
 	SQL := `
 		INSERT INTO mobiles(asset_id, operating_system, ram, storage, charger, device_password)
 		VALUES($1, $2, $3, $4, $5, $6)
@@ -76,11 +76,11 @@ func InsertMobileDetails(assetID string, req models.MobileRequest) error {
 		req.DevicePassword,
 	}
 
-	_, err := database.DB.Exec(SQL, args...)
+	_, err := tx.Exec(SQL, args...)
 	return err
 }
 
-func CreateAsset(model models.CreateAssetRequest) (string, error) {
+func CreateAsset(tx *sqlx.Tx, model models.CreateAssetRequest) (string, error) {
 	SQL := `
 		INSERT INTO assets(brand, model, serial_number, asset_type, owner_type, warranty_start, warranty_end)
 		VALUES($1, $2, $3, $4, $5, $6, $7)
@@ -98,14 +98,14 @@ func CreateAsset(model models.CreateAssetRequest) (string, error) {
 	}
 
 	var assetID string
-	err := database.DB.Get(&assetID, SQL, args...)
+	err := tx.Get(&assetID, SQL, args...)
 	if err != nil {
 		return assetID, err
 	}
 	return assetID, nil
 }
 
-func FetchAssets(brand, model, assetType, serial_number, status, owner string, limit, offset int) ([]models.AssetAssignRequest, error) {
+func FetchAssets(brand, model, assetType, serial_number, status, owner string, limit, offset int) ([]models.AllAssetsInfoRequest, error) {
 	SQL := `SELECT id, brand, model, asset_type, serial_number, status, owner_type, assigned_by_id, assigned_to_id, assigned_at, warranty_start, warranty_end, service_start, service_end, returned_at, created_at, updated_at 
           FROM assets
           WHERE archived_at IS NULL 
@@ -130,7 +130,7 @@ func FetchAssets(brand, model, assetType, serial_number, status, owner string, l
           ORDER BY created_at
 		  LIMIT $7 OFFSET $8
           `
-	var result []models.AssetAssignRequest
+	var result []models.AllAssetsInfoRequest
 	err := database.DB.Select(&result, SQL, brand, model, assetType, serial_number, status, owner, limit, offset)
 	return result, err
 }

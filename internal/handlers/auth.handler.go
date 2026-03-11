@@ -42,13 +42,13 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	var token string
 	err = database.Tx(func(tx *sqlx.Tx) error {
-		userID, err := dbhelper.CreateUser(req.Name, req.Email, req.PhoneNumber, req.Role, req.Employment, hashedPassword)
+		userID, err := dbhelper.CreateUser(tx, req.Name, req.Email, req.PhoneNumber, req.Role, req.Employment, hashedPassword)
 		if err != nil {
 			utils.RespondError(w, http.StatusInternalServerError, err, "failed to create user")
 			return err
 		}
 
-		sessionID, err := dbhelper.CreateSession(userID)
+		sessionID, err := dbhelper.CreateSessionOnRegister(tx, userID)
 		if err != nil {
 			utils.RespondError(w, http.StatusInternalServerError, err, "failed to create session")
 			return err
@@ -94,7 +94,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := user.ID
-	sessionID, err := dbhelper.CreateSession(userID)
+	sessionID, err := dbhelper.CreateSessionOnLogin(userID)
 	if err != nil {
 		utils.RespondError(w, http.StatusInternalServerError, err, "failed to create session")
 		return
@@ -121,8 +121,9 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionID := userContext.SessionID
-	if err := dbhelper.ValidateUserSession(sessionID); err != nil {
-		utils.RespondError(w, http.StatusForbidden, err, "no active session found")
+	isValidaUser, err := dbhelper.ValidateUserSession(sessionID)
+	if err != nil || !isValidaUser {
+		utils.RespondError(w, http.StatusForbidden, nil, "no active session found")
 		return
 	}
 
