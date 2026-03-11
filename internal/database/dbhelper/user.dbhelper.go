@@ -79,18 +79,6 @@ func GetUserAuthByEmail(email string) (models.User, error) {
 	return user, nil
 }
 
-func FetchAssetsInfo(userID, assetStatus string) ([]models.AssetInfoRequest, error) {
-	SQL := `
-		SELECT id, brand, model, status, asset_type
-		FROM assets
-		WHERE assigned_to_id=$1
-		AND ($2 = '' OR status::TEXT=$2)
-	`
-	assetDetails := make([]models.AssetInfoRequest, 0)
-	err := database.DB.Select(&assetDetails, SQL, userID, assetStatus)
-	return assetDetails, err
-}
-
 func FetchAssetInfo(userID string) ([]models.AssetInfoRequest, error) {
 	SQL := `
 		SELECT id, brand, model, status, asset_type
@@ -123,16 +111,20 @@ func FetchUsers(name, role, employment, assetStatus string) ([]models.UserInfoRe
 		if err != nil {
 			return users, err
 		}
-
-		// If filtering by assetStatus and no matching assets found → skip user
-		if assetStatus != "available" && len(assetDetails) == 0 {
-			continue
+		if assetStatus == "available" {
+			if len(assetDetails) > 0 {
+				continue
+			} else {
+				if len(assetDetails) == 0 {
+					continue
+				}
+			}
 		}
 
 		user.AssetDetails = assetDetails
 		filteredUsers = append(filteredUsers, user)
 	}
-	return filteredUsers, err
+	return filteredUsers, nil
 
 	// change in the copy not the original
 	// for _, user := range users {
@@ -147,7 +139,7 @@ func FetchUsers(name, role, employment, assetStatus string) ([]models.UserInfoRe
 
 func FetchUserByID(userID string) (models.UserInfoRequest, error) {
 	SQL := `
-		SELECT name, email, phone_number, role, employment, created_at
+		SELECT id, name, email, phone_number, role, employment, created_at
 		FROM users
 		WHERE archived_at IS NULL AND id=$1
 	`
@@ -197,9 +189,23 @@ func UpdateUserSession(sessionID string) error {
 	return nil
 }
 
-// func DeleteUserByID(userID string) error {
-// if a user is deleted then, all the assets assigned to them will be "available"
-// SQL := `
-// 	UPDATE user
-// `
-// }
+func DeleteUser(tx *sqlx.Tx, userID string) error {
+	SQL := `
+		UPDATE users
+		SET archived_at=NOW()
+		WHERE id=$1 AND archived_at IS NULL
+	`
+	_, err := tx.Exec(SQL, userID)
+	return err
+}
+
+func DeleteUserSession(tx *sqlx.Tx, userID string) error {
+	SQL := `
+		UPDATE user_sessions
+		SET archived_at=NOW()
+		WHERE user_id=$1 AND  archived_at IS NULL
+	`
+
+	_, err := tx.Exec(SQL, userID)
+	return err
+}

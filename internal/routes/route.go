@@ -27,7 +27,7 @@ func SetUpRouter() *chi.Mux {
 				r.Get("/{id}", handler.GetUserInfoByID)
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.CheckUserRole)
-					// r.Delete("/{id}", handler)
+					r.Delete("/{id}", handler.DeleteUserByID)
 				})
 			})
 			r.Route("/assets", func(r chi.Router) {
@@ -36,7 +36,7 @@ func SetUpRouter() *chi.Mux {
 					r.Get("/", handler.FetchAssets)
 					r.Post("/", handler.CreateAsset)
 					r.Put("/update/{id}", handler.UpdateAsset)
-					r.Put("/assign", handler.AssignedAssets)
+					r.Put("/assign", handler.AssignAssets)
 					r.Put("/service/{id}", handler.SentToService)
 				})
 			})

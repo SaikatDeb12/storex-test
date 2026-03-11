@@ -89,6 +89,7 @@ func FetchAssets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	page = max(page, 1)
 	offset := (page - 1) * limit
 
 	allAssets, err := dbhelper.FetchAssets(brand, model, assetType, serialNumber, status, owner, limit, offset)
@@ -98,13 +99,18 @@ func FetchAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	assetsCount, err := dbhelper.GettingAssetsCount()
+	if err != nil {
+		utils.RespondError(w, http.StatusInternalServerError, err, "failed to get asset count")
+		return
+	}
+
 	utils.RespondJSON(w, http.StatusOK, map[string]any{
 		"dashboard": assetsCount,
 		"assets":    allAssets,
 	})
 }
 
-func AssignedAssets(w http.ResponseWriter, r *http.Request) {
+func AssignAssets(w http.ResponseWriter, r *http.Request) {
 	var req models.AssetAssignRequest
 
 	if parseErr := utils.ParseBody(r.Body, &req); parseErr != nil {
@@ -114,9 +120,9 @@ func AssignedAssets(w http.ResponseWriter, r *http.Request) {
 	userCtx, _ := middleware.UserContext(r)
 	currectUserID := userCtx.UserID
 
-	err := dbhelper.AssignedAssets(req.AssetID, currectUserID, req.UserID)
+	err := dbhelper.AssignAssets(req.AssetID, currectUserID, req.UserID)
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, err, "failed to assigned assets")
+		utils.RespondError(w, http.StatusBadRequest, err, "failed to assign assets")
 		return
 	}
 	utils.RespondJSON(w, http.StatusOK, map[string]string{
@@ -127,7 +133,7 @@ func AssignedAssets(w http.ResponseWriter, r *http.Request) {
 func UpdateAsset(w http.ResponseWriter, r *http.Request) {
 	assetId := chi.URLParam(r, "id")
 	if assetId == "" {
-		utils.RespondError(w, http.StatusBadRequest, nil, "invalid id")
+		utils.RespondError(w, http.StatusBadRequest, nil, "invalid asset id")
 		return
 	}
 	var req models.UpdateAssetRequest

@@ -135,6 +135,18 @@ func FetchAssets(brand, model, assetType, serial_number, status, owner string, l
 	return result, err
 }
 
+func FetchAssetsInfo(userID, assetStatus string) ([]models.AssetInfoRequest, error) {
+	SQL := `
+		SELECT id, brand, model, status, asset_type
+		FROM assets
+		WHERE assigned_to_id=$1
+		AND ($2 = '' OR status::TEXT=$2)
+	`
+	assetDetails := make([]models.AssetInfoRequest, 0)
+	err := database.DB.Select(&assetDetails, SQL, userID, assetStatus)
+	return assetDetails, err
+}
+
 func GettingAssetsCount() (models.DashboardSummaryRequest, error) {
 	SQL := `
 		SELECT 
@@ -152,14 +164,14 @@ func GettingAssetsCount() (models.DashboardSummaryRequest, error) {
 	return result, err
 }
 
-func AssignedAssets(id, assignedById, assignedTo string) error {
+func AssignAssets(id, assignedById, assignedTo string) error {
 	SQL := `UPDATE assets
           SET assigned_to_id=$3,
 			  assigned_by_id=$2,
               assigned_at=NOW(),
               status='assigned',
               updated_at=NOW()
-          WHERE id=$1
+          WHERE id=$1 and status='available'
           AND archived_at IS NULL 
               `
 	// _, err := database.DB.Exec(SQL, assignedById, assignedTo, id)
@@ -178,9 +190,13 @@ func UpdateAsset(tx *sqlx.Tx, assetID, brand, model, serialNo, assetType, owner 
 	query := `UPDATE assets
             set brand = $2, model = $3, serial_number = $4, asset_type=$5, owner_type=$6, warranty_start = $7,warranty_end=$8, updated_at =now()
             where id= $1 and archived_at is null `
-	_, err := tx.Exec(query, assetID, brand, model, serialNo, assetType, owner, warrantyStart, warrantyEnd)
+	result, err := tx.Exec(query, assetID, brand, model, serialNo, assetType, owner, warrantyStart, warrantyEnd)
 	if err != nil {
 		return err
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return errors.New("asset not found or already archived")
 	}
 	return nil
 }
@@ -265,9 +281,29 @@ func UpdateMobile(tx *sqlx.Tx, assetID string, mobile *models.MobileRequest) err
 func SentToService(assetId string, serviceStart, serviceEnd time.Time) error {
 	query := `update assets set status='in_service',service_start=$2,service_end=$3,updated_at=now()
               where id=$1 and archived_at is NULL and status ='available'`
-	_, err := database.DB.Exec(query, assetId, serviceStart, serviceEnd)
+	result, err := database.DB.Exec(query, assetId, serviceStart, serviceEnd)
 	if err != nil {
 		return err
 	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return errors.New("asset not found or already archived")
+	}
 	return nil
+}
+
+func UnassignAssets(tx *sqlx.Tx, userID string) error {
+	SQL := `
+		UPDATE assets
+       SET assigned_to = NULL,
+           assigned_by_id = NULL,
+           assigned_on = NULL,
+           status = 'available',
+           returned_on = now(),
+           updated_at = now()
+       WHERE assigned_to = $1
+       AND archived_at IS NULL
+	`
+	_, err := tx.Exec(SQL, userID)
+	return err
 }
