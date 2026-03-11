@@ -295,13 +295,13 @@ func SentToService(assetId string, serviceStart, serviceEnd time.Time) error {
 func UnassignAssets(tx *sqlx.Tx, userID string) error {
 	SQL := `
 		UPDATE assets
-       SET assigned_to = NULL,
+       SET assigned_to_id = NULL,
            assigned_by_id = NULL,
-           assigned_on = NULL,
+           assigned_at = NULL,
            status = 'available',
-           returned_on = now(),
+           returned_at = now(),
            updated_at = now()
-       WHERE assigned_to = $1
+       WHERE assigned_to_id = $1
        AND archived_at IS NULL
 	`
 	_, err := tx.Exec(SQL, userID)

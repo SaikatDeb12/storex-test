@@ -32,7 +32,7 @@ func GetUserInfoByID(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	userDetails, err := dbhelper.FetchUserByID(userID)
 	if err != nil {
-		utils.RespondError(w, http.StatusInternalServerError, err, "failed to fetch user details")
+		utils.RespondError(w, http.StatusNotFound, err, "failed to fetch user details")
 		return
 	}
 

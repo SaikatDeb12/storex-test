@@ -97,6 +97,7 @@ func FetchUsers(name, role, employment, assetStatus string) ([]models.UserInfoRe
 		WHERE ($1 = '' OR name LIKE '%' || $1 || '%')
 		AND ($2 = '' OR role::TEXT=$2)
 		AND ($3 = '' OR employment::TEXT=$3)
+		AND archived_at IS NOT NULL
 	`
 	users := make([]models.UserInfoRequest, 0)
 	err := database.DB.Select(&users, SQL, name, role, employment)
@@ -150,6 +151,9 @@ func FetchUserByID(userID string) (models.UserInfoRequest, error) {
 	}
 
 	assets, err := FetchAssetInfo(userID)
+	if err != nil {
+		return user, err
+	}
 	if len(assets) == 0 {
 		return user, nil
 	}
@@ -195,8 +199,16 @@ func DeleteUser(tx *sqlx.Tx, userID string) error {
 		SET archived_at=NOW()
 		WHERE id=$1 AND archived_at IS NULL
 	`
-	_, err := tx.Exec(SQL, userID)
-	return err
+	result, err := tx.Exec(SQL, userID)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return errors.New("session not found")
+	}
+	return nil
 }
 
 func DeleteUserSession(tx *sqlx.Tx, userID string) error {
@@ -206,6 +218,14 @@ func DeleteUserSession(tx *sqlx.Tx, userID string) error {
 		WHERE user_id=$1 AND  archived_at IS NULL
 	`
 
-	_, err := tx.Exec(SQL, userID)
-	return err
+	result, err := tx.Exec(SQL, userID)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return errors.New("session not found")
+	}
+	return nil
 }
